@@ -1,30 +1,31 @@
-# NOTES
-MAINTAINER bing281
+# ##################################################################
 # FlightTracker ADS-B all in one docker including the following:
 #   DUMP1090
 #   PIAWARE 
 #   FR24FEED
+# ##################################################################
 
-# BASE
-FROM debian:stretch
+# VARIABLES ########################################################
+ARG DUMP1090_VERSION=v3.7.1
+ARG DUMP1090_GIT_HASH=40614778bc97a322c671c609f17a41f3eee3b194
+ARG DUMP1090_TAR_HASH=b63df996c5ffc6c30e8d4d0d70272794b70a044cb1aa4179108d283c14464e6b
 
-# UPDATE BASE
-RUN apt-get update && \
-    apt-get install -y wget libusb-1.0-0-dev pkg-config ca-certificates git-core cmake build-essential --no-install-recommends && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+# BASE #############################################################
+FROM alpine as base
 
-# DRIVER BLACKLIST
-WORKDIR /tmp
-RUN mkdir /etc/modprobe.d && echo 'blacklist dvb_usb_rtl28xxu' > /etc/modprobe.d/raspi-blacklist.conf && \
-    git clone git://git.osmocom.org/rtl-sdr.git && \
-    mkdir rtl-sdr/build && \
-    cd rtl-sdr/build && \
-    cmake ../ -DINSTALL_UDEV_RULES=ON -DDETACH_KERNEL_DRIVER=ON && \
-    make && \
-    make install && \
-    ldconfig && \
-    rm -rf /tmp/rtl-sdr
+RUN cat /etc/apk/repositories && \
+    echo '@edge http://nl.alpinelinux.org/alpine/edge/main' >> /etc/apk/repositories && \
+    echo '@testing http://nl.alpinelinux.org/alpine/edge/testing' >> /etc/apk/repositories && \
+    cat /etc/apk/repositories && \
+    apk add --no-cache tini librtlsdr@testing libusb ncurses-libs
+
+# BUILDER ##########################################################
+FROM base as builder
+
+RUN apk add --no-cache \
+        curl ca-certificates \
+        coreutils make gcc pkgconf \
+        libc-dev librtlsdr-dev@testing libusb-dev ncurses-dev
 
 # DUMP1090 (ADS-B RADIO) INSTALL
 WORKDIR /tmp
